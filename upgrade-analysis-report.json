@@ -1,0 +1,189 @@
+{
+  "analysisId": "dotnet-upgrade-analysis-2026-06-24",
+  "summary": {
+    "totalIssues": 9,
+    "criticalIssues": 2,
+    "highIssues": 4,
+    "mediumIssues": 2,
+    "lowIssues": 1,
+    "estimatedEffort": "40-72 hours",
+    "upgradeComplexity": "Complex",
+    "deprecatedApisFound": 2,
+    "breakingChanges": 7,
+    "compatibilityScore": 22
+  },
+  "issues": [
+    {
+      "id": "issue-1",
+      "severity": "critical",
+      "category": "project-configuration",
+      "remediation": "Migrate the legacy .NET Framework WPF project file to SDK-style and retarget to net8.0-windows. Replace TargetFrameworkVersion with TargetFramework, add UseWPF, and remove legacy bootstrapper/publish settings that are specific to .NET Framework.",
+      "title": "Project targets .NET Framework 4.8 instead of .NET 8",
+      "description": "The main project file is a legacy non-SDK-style .csproj targeting .NET Framework 4.8. .NET 8 requires SDK-style project configuration and a Windows-specific target framework for WPF applications.",
+      "filePath": "SPTC APPLICATION.csproj",
+      "lineNumber": 11,
+      "codeSnippet": "<TargetFrameworkVersion>v4.8</TargetFrameworkVersion>",
+      "recommendation": "Convert the project to SDK-style and use <TargetFramework>net8.0-windows</TargetFramework> with <UseWPF>true</UseWPF>. Re-evaluate legacy properties such as ProjectTypeGuids, bootstrapper packages, ClickOnce publish metadata, and explicit framework assembly references.",
+      "effort": "high",
+      "breakingChange": true,
+      "impact": "The application cannot build or run on .NET 8 until the project system is migrated."
+    },
+    {
+      "id": "issue-2",
+      "severity": "critical",
+      "category": "project-configuration",
+      "remediation": "Replace .NET Framework runtime configuration with .NET 8-compatible application settings. Remove supportedRuntime and assemblyBinding redirects from App.config, and move required settings to appsettings.json or a simplified runtime config strategy appropriate for desktop .NET 8 apps.",
+      "title": "App.config contains .NET Framework-only runtime settings",
+      "description": "The application configuration declares a .NET Framework runtime SKU and assembly binding redirects. These settings are not used the same way in .NET 8 and indicate a runtime model that is incompatible with the target platform.",
+      "filePath": "App.config",
+      "lineNumber": 9,
+      "codeSnippet": "<supportedRuntime version=\"v4.0\" sku=\".NETFramework,Version=v4.8\" />",
+      "recommendation": "Remove supportedRuntime and bindingRedirect sections during migration. Keep only settings that are still needed, and migrate user/application settings to a .NET 8-compatible configuration approach.",
+      "effort": "high",
+      "breakingChange": true,
+      "impact": "Runtime configuration will not map cleanly to .NET 8 and can hide dependency resolution problems during migration."
+    },
+    {
+      "id": "issue-3",
+      "severity": "high",
+      "category": "package-references",
+      "remediation": "Replace packages.config and explicit assembly HintPath references with SDK-style PackageReference entries. Reassess each package for .NET 8 compatibility and update to supported versions.",
+      "title": "Legacy packages.config-based dependency management blocks .NET 8 migration",
+      "description": "The project uses packages.config and explicit assembly references from the packages folder. .NET 8 migrations should use PackageReference in an SDK-style project, and several current references are tied to .NET Framework-targeted assets.",
+      "filePath": "packages.config",
+      "lineNumber": 2,
+      "codeSnippet": "<package id=\"AForge\" version=\"2.2.5\" targetFramework=\"net481\" />",
+      "recommendation": "Migrate all NuGet dependencies to PackageReference and validate package support for net8.0-windows. Remove direct HintPath references from the project file.",
+      "effort": "high",
+      "breakingChange": true,
+      "impact": "Package restore and dependency resolution will remain tied to .NET Framework conventions and may fail or select incompatible assets on .NET 8."
+    },
+    {
+      "id": "issue-4",
+      "severity": "high",
+      "category": "package-references",
+      "remediation": "Replace AForge/AForge.Video/AForge.Video.DirectShow with a camera/video library that supports modern .NET, or isolate camera capture behind an abstraction and port to a supported package.",
+      "title": "AForge camera stack is not a safe .NET 8 dependency choice",
+      "description": "The project references legacy AForge packages and uses AForge video APIs in the ID generation workflow. These libraries are historically tied to older .NET Framework scenarios and are a common migration blocker for .NET 6+ and .NET 8.",
+      "filePath": "View/IDGenerator/GenerateID.xaml.cs",
+      "lineNumber": 8,
+      "codeSnippet": "using AForge.Video;\nusing AForge.Video.DirectShow;",
+      "recommendation": "Evaluate supported alternatives such as OpenCvSharp-based capture, DirectShow-compatible maintained wrappers, or MediaCapture abstractions that support current .NET Windows desktop targets.",
+      "effort": "high",
+      "breakingChange": true,
+      "impact": "Camera capture functionality may fail to compile or behave unpredictably after migration."
+    },
+    {
+      "id": "issue-5",
+      "severity": "high",
+      "category": "breaking-change",
+      "remediation": "Remove unsupported framework assemblies and replace them with supported APIs or packages. In particular, eliminate System.Web and System.Data.OracleClient references unless there is verified code and package support for a replacement.",
+      "title": "Project references obsolete or unsupported framework assemblies for .NET 8",
+      "description": "The project file includes framework assembly references that do not belong in a .NET 8 WPF desktop application. System.Web is not part of .NET 8 desktop apps, and System.Data.OracleClient is obsolete and unavailable in modern .NET.",
+      "filePath": "SPTC APPLICATION.csproj",
+      "lineNumber": 143,
+      "codeSnippet": "<Reference Include=\"System.Data.OracleClient\" />\n...\n<Reference Include=\"System.Web\" />",
+      "recommendation": "Remove these references during SDK-style migration. If Oracle access is required, use Oracle.ManagedDataAccess.Core or another supported provider. Replace any System.Web usage with modern equivalents if present.",
+      "effort": "medium",
+      "breakingChange": true,
+      "impact": "The project will not compile on .NET 8 with unsupported framework assembly references retained."
+    },
+    {
+      "id": "issue-6",
+      "severity": "high",
+      "category": "package-references",
+      "remediation": "Review System.Drawing usage and move image-processing code to WPF-native imaging APIs or a supported cross-platform/Windows-specific graphics library. Avoid relying on System.Drawing.Common behavior in .NET 8.",
+      "title": "System.Drawing.Common usage is risky for .NET 8 migration",
+      "description": "The project references System.Drawing.Common and uses System.Drawing types in multiple files. System.Drawing.Common has important support limitations in modern .NET and is a frequent migration issue, especially outside tightly controlled Windows-only scenarios.",
+      "filePath": "SPTC APPLICATION.csproj",
+      "lineNumber": 148,
+      "codeSnippet": "<Reference Include=\"System.Drawing.Common, Version=7.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL\">",
+      "recommendation": "For WPF, prefer BitmapSource, RenderTargetBitmap, BitmapImage, and related imaging APIs. Where drawing primitives are required, evaluate SkiaSharp or another supported library.",
+      "effort": "medium",
+      "breakingChange": true,
+      "impact": "Image capture, rendering, or printing code may require refactoring to remain stable on .NET 8."
+    },
+    {
+      "id": "issue-7",
+      "severity": "medium",
+      "category": "language-features",
+      "remediation": "When converting to SDK-style, explicitly configure modern compiler defaults such as ImplicitUsings and Nullable, then address resulting warnings incrementally.",
+      "title": "Project lacks .NET 8 language feature configuration",
+      "description": "The current legacy project file does not define ImplicitUsings or Nullable settings. While not a hard blocker by itself, this leaves the migrated project without explicit modern compiler behavior and increases migration uncertainty.",
+      "filePath": "SPTC APPLICATION.csproj",
+      "lineNumber": 1,
+      "codeSnippet": "<Project ToolsVersion=\"15.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">",
+      "recommendation": "After SDK-style migration, add <ImplicitUsings>enable</ImplicitUsings> and decide whether to use <Nullable>enable</Nullable> immediately or phase it in with warnings managed over time.",
+      "effort": "low",
+      "breakingChange": false,
+      "impact": "The migrated project may miss standard .NET 8 conventions and produce avoidable maintenance issues."
+    },
+    {
+      "id": "issue-8",
+      "severity": "medium",
+      "category": "date-time",
+      "remediation": "Review local time logging and decide whether timestamps should use DateTimeOffset.Now or UTC-based logging for consistent behavior after migration.",
+      "title": "DateTime.Now usage should be reviewed during .NET 8 migration",
+      "description": "The rules require review of DateTime handling. The logger uses DateTime.Now, which is not a direct blocker but should be validated for timezone correctness and consistency during modernization.",
+      "filePath": "Objects/EventLogger.cs",
+      "lineNumber": 15,
+      "codeSnippet": "string logEntry = $\"{DateTime.Now:ddd MMM-dd HH:mm} :: {message}{Environment.NewLine}\";",
+      "recommendation": "Prefer DateTimeOffset.Now for local timestamps with offset information, or DateTimeOffset.UtcNow if centralized log correlation is required.",
+      "effort": "low",
+      "breakingChange": false,
+      "impact": "Timestamp interpretation may become inconsistent across environments or future integrations."
+    },
+    {
+      "id": "issue-9",
+      "severity": "low",
+      "category": "project-configuration",
+      "remediation": "Document the required upgrade path instead of attempting an in-place framework switch. This application should move from .NET Framework WPF to net8.0-windows through project conversion and dependency validation.",
+      "title": "Direct in-place upgrade path from .NET Framework 4.8 to .NET 8 is not represented in the current solution",
+      "description": "The solution is a classic .NET Framework WPF application with legacy project system metadata, bootstrapper packages, and framework-era configuration. This indicates a staged migration is required rather than a simple target version edit.",
+      "filePath": "SPTC APPLICATION.sln",
+      "lineNumber": 1,
+      "codeSnippet": "Microsoft Visual Studio Solution File",
+      "recommendation": "Plan a staged migration: convert project format, migrate package management, remove framework-only runtime config, replace unsupported dependencies, then validate WPF-specific behavior on net8.0-windows.",
+      "effort": "medium",
+      "breakingChange": true,
+      "impact": "Attempting a direct retarget without staged remediation is likely to fail and create cascading compatibility issues."
+    }
+  ],
+  "projectInfo": {
+    "projectType": "dotnet-framework",
+    "currentFramework": ".NET Framework 4.8",
+    "targetFramework": ".NET 8",
+    "packagesAnalyzed": 28,
+    "configFilesChecked": [
+      "SPTC APPLICATION.csproj",
+      "packages.config",
+      "App.config"
+    ]
+  },
+  "recommendations": [
+    {
+      "category": "project-configuration",
+      "priority": "high",
+      "recommendation": "Convert the WPF project to SDK-style and retarget to net8.0-windows with UseWPF enabled before addressing package and code-level issues.",
+      "estimatedEffort": "12-20 hours"
+    },
+    {
+      "category": "package-references",
+      "priority": "high",
+      "recommendation": "Replace packages.config with PackageReference and validate every dependency for .NET 8 Windows desktop compatibility, especially AForge and System.Drawing-related usage.",
+      "estimatedEffort": "12-24 hours"
+    },
+    {
+      "category": "runtime-configuration",
+      "priority": "high",
+      "recommendation": "Remove .NET Framework runtime declarations and binding redirects from App.config, preserving only settings that are still needed in a .NET 8 desktop configuration model.",
+      "estimatedEffort": "4-8 hours"
+    },
+    {
+      "category": "code-modernization",
+      "priority": "medium",
+      "recommendation": "Review System.Drawing and DateTime usage and refactor to WPF-native imaging and DateTimeOffset-based logging where appropriate.",
+      "estimatedEffort": "8-20 hours"
+    }
+  ]
+}
